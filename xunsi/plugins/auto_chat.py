@@ -3,6 +3,10 @@ from nonebot.adapters.onebot.v11 import Event,Message,MessageSegment,MessageEven
 from nonebot.params import CommandArg
 from nonebot.log import logger
 from nonebot.rule import Rule,to_me
+
+from nonebot import require
+require("nonebot_plugin_localstore")
+import toml
 #import redis
 
 #时间和存储
@@ -13,14 +17,17 @@ from nonebot import require
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 from nonebot.adapters import Bot
 
-#redis_db = redis.StrictRedis(host='fairingstudio.com',port=6379,db=1,password="51445218lcy")
+
 time_last_conn = 0
 
-conn = pymysql.connect(host="fairingstudio.com",user="kuayue",password="114514KuaYue")#,database="kuayue")
+database_token = toml.load("C:\\Users\\Administrator\\shiinano\\database_tocken.toml")
+tokens = database_token["mysql_database"]
+
+conn = pymysql.connect(host=tokens["host"],user=tokens["user1"],password=tokens["pswd1"])#,database="kuayue")
 cursor = conn.cursor()
 
 def conn_sql():
-    conn = pymysql.connect(host="fairingstudio.com",user="kuayue",password="114514KuaYue")#,database="kuayue")
+    conn = pymysql.connect(host=tokens["host"],user=tokens["user1"],password=tokens["pswd1"])
     cursor = conn.cursor()
 
 
@@ -82,18 +89,7 @@ async def contains_typo_key(event:MessageEvent) ->bool:
             return True
     return False
 
-#learning_chat_trigger = on_message(priority=10,block=False)#,rule=Rule(contains_typo_key))
 
-# @learning_chat_trigger.handle()
-# async def learning_chat_function(bot: Bot, event2: GroupMessageEvent,event:GroupMessageEvent,arg:Message=CommandArg()):
-#     #logger.info(learning_chat_trigger.rule())
-#     logger.info(f"[111]on_message echo test userif={event.get_user_id()},session_id={event.get_session_id()},plaintext={event.get_plaintext()}")
-#     if event.get_user_id() == "1033855007":
-#         logger.info(f"[222]on_message echo test userif={event.get_user_id()},session_id={event.get_session_id()},plaintext={event.get_plaintext()}")
-#         await learning_chat_trigger.finish(event.get_plaintext())
-#     else:
-#         logger.info(f"[333]on_message echo test userif={event.get_user_id()},session_id={event.get_session_id()},plaintext={event.get_plaintext()}")
-#         await learning_chat_trigger.finish()
 
 group_message = on_message(priority=10, block=False)
 
