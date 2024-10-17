@@ -1,0 +1,14 @@
+[project]
+name = "shiinano"
+version = "0.1.0"
+description = "shiinano"
+readme = "README.md"
+requires-python = ">=3.8, <4.0"
+
+[tool.nonebot]
+adapters = [
+    { name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11" }
+]
+plugins = ["nonebot_plugin_ddcheck", "nonebot_plugin_oddtext", "nonebot_plugin_learning_chat", "nonebot_plugin_picmcstat", "nonebot_plugin_setu4", "nonebot_plugin_acgnshow", "nonebot_plugin_batitle", "nonebot_plugin_emojimix", "nonebot_plugin_picstatus", "nonebot_plugin_wordcloud", "nonebot_plugin_batarot", "nonebot_plugin_fishing", "nonebot_plugin_mcqq_server"]
+plugin_dirs = ["xunsi/plugins"]
+builtin_plugins = ["echo"]

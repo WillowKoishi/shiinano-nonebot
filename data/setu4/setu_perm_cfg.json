@@ -1,0 +1,40 @@
+{
+    "group_1064604356":{
+        "cd"       : 1,    
+        "r18"      : true,
+        "withdraw" : 0,   
+        "maxnum"   : 10    
+    },
+	"group_1037218156":{
+        "cd"       : 1,    
+        "r18"      : true,
+        "withdraw" : 0,   
+        "maxnum"   : 10    
+    },
+	"group_589943678":{
+        "cd"       : 1,    
+        "r18"      : false,
+        "withdraw" : 0,   
+        "maxnum"   : 10    
+    },
+	"group_979096521":{
+        "cd"       : 1,    
+        "r18"      : true,
+        "withdraw" : 0,   
+        "maxnum"   : 10    
+    },
+    "group_975450294":{
+        "cd"       : 1,    
+        "r18"      : true,
+        "withdraw" : 0,   
+        "maxnum"   : 10    
+    },
+    "last":{                 
+        "user_1919" : 810    
+    },
+    "ban":[                 
+        "user_1919",         
+        "group_810"
+    ],
+    "proxy": "i.pixiv.re"   
+}
