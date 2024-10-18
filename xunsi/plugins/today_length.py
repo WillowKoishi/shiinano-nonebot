@@ -12,12 +12,14 @@ import time,datetime
 import redis
 from nonebot import require
 require("nonebot_plugin_localstore")
+import toml
 
 
 from nonebot.log import logger
 from nonebot.adapters.onebot.v11 import  Event,Message,MessageSegment
 
-redis_db = redis.StrictRedis(host='fairingstudio.com',port=6379,db=1,password="51445218lcy")
+database_token = toml.load("C:\\Users\\Administrator\\shiinano\\database_tocken.toml")
+redis_db = redis.StrictRedis(host=database_token["redis_database"]["host"],port=database_token["redis_database"]["port"],db=1,password=database_token["redis_database"]["pswd"])
 
 
 today_length_trigger = on_command("今日长度",aliases={"jrcd","金日成的"},priority=10,block=True)
@@ -80,5 +82,5 @@ async def avg_length_function(event:Event,arg:Message=CommandArg()):
 
 @tester.handle()
 async def tester_trigger():
-    redis_db.hmset(f"length:3186529401",{f"20241016":11.94})
+    #redis_db.hmset(f"length:3186529401",{f"20241018":-100000000})
     await tester.finish(str(redis_db.ping()))
