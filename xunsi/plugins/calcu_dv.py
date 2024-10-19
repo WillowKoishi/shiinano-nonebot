@@ -7,6 +7,9 @@ from nonebot.params import ArgPlainText
 import math
 import numpy as np
 import pandas as pd
+
+from scipy.optimize import minimize
+
 def is_number(s):
     try:
         float(s)
@@ -27,6 +30,7 @@ calcu_dv_trigger = on_command("锘 计算dv",aliases={"锘 jsdv","锘jsdv","锘�
 calcu_dwr_trigger = on_command("锘 计算干质比",aliases={"锘 计算dwr","锘计算干质比"},priority=10,block=True)
 calcu_kyl_trigger = on_command("锘 康永来公式",priority=10,block=True)
 calcu_gsd_trigger = on_command("锘 光学卫星简单计算器",aliases={"锘 光简算","锘光简算"},priority=10,block=True)
+calcu_kang_opt_trigger = on_command("锘 康式光学",aliases={"锘康式光学"},priority=10,block=True)
 
 @calcu_dv_trigger.handle()
 def  calcu_dv_function(matcher:Matcher, args: Message = CommandArg()):
@@ -160,6 +164,63 @@ async def got_kyl_function(kyl_arg:str=ArgPlainText()):
 #------------------------------------------------------------------------------
 
 
+def calculate_nadir_swath(diameter_m, satellite_altitude_km, kang_constant, earth_radius_km=6378):
+    """
+    计算0度侧摆下的星下幅宽，基于卫星的口径、轨道高度和康常数（调节系数）。
+    
+    参数:
+    - diameter_m (float): 光学系统的口径（单位：米）
+    - satellite_altitude_km (float): 卫星的轨道高度（单位：千米）
+    - kang_constant (float): 康常数（调节系数），用于计算焦距
+    - earth_radius_km (float): 地球半径（单位：千米），默认值为6378千米
+    
+    返回:
+    - float: 0度侧摆的星下幅宽（单位：千米）
+    """
+    # 计算焦距，使用康常数作为调节系数
+    focal_length_m = kang_constant * diameter_m
+    
+    # 计算视场角（FOV）
+    half_fov_rad = np.arctan((diameter_m / 2) / focal_length_m)
+    
+    # 计算0度侧摆下的星下幅宽
+    satellite_altitude_m = satellite_altitude_km * 1000
+    nadir_swath_m = 2 * satellite_altitude_m * np.tan(half_fov_rad)
+    
+    # 将结果转换为千米
+    nadir_swath_km = nadir_swath_m / 1000
+    return nadir_swath_km
+
+def kang_swath_width_adjusted(off_nadir_angle_deg, nadir_swath_width_km, a=25.14, b=3.30):
+    """
+    计算侧摆角度下的卫星幅宽，基于“康式幅宽法”，并根据给定的0度星下幅宽进行动态调整。
+    
+    参数:
+    - off_nadir_angle_deg (float): 侧摆角度（单位：度）
+    - nadir_swath_width_km (float): 0度星下幅宽的基础值（单位：千米）
+    - a (float): 康式幅宽法中的参数
+    - b (float): 康式幅宽法中的参数
+    
+    返回:
+    - float: 幅宽（单位：千米）
+    """
+    # 计算调整项 c，使得在0度侧摆时，幅宽等于计算的0度星下幅宽
+    c = nadir_swath_width_km - (a * (np.tan(np.radians(0)) ** b))
+    
+    # 根据侧摆角度计算幅宽
+    swath_width_km = a * (np.tan(np.radians(off_nadir_angle_deg)) ** b) + c
+    return swath_width_km
+
+# 使用示例
+diameter = 1.5  # 光学口径（米）
+altitude_km = 700  # 轨道高度（千米）
+kang_constant = 36.84  # 康常数
+
+
+
+
+#------------------------------------------------------------------------------
+
 # Comprehensive sensor calculation considering Earth curvature, GSD, and GRD for multiple bands
 def comprehensive_sensor_calculations(altitude, aperture, f_number, pixel_size, off_nadir_angle, wavelength_dict, earth_radius=6378000):
     """
@@ -235,7 +296,7 @@ def comprehensive_sensor_calculations(altitude, aperture, f_number, pixel_size, 
 地面采样分辨率:{gsd/1000000:.3f}m
 全口径潜力宽幅：{potential_swath/1000:.3f}km
 近接宽幅:{near_contact_swath/1000:.3f}km
-衍射极限分辨率(GDR)分辨率计算结果：
+衍射极限分辨率(GRD)分辨率计算结果：
 可见光:{grd_data['Visible']:.3f}m
 近红外:{grd_data['NIR']:.3f}m
 短波红外SWIR:{grd_data['SWIR']:.3f}m
@@ -297,3 +358,30 @@ async def got_gsd_function(event:Event,gsd_arg:str=ArgPlainText()):
     print(gsd_result)
     await calcu_dv_trigger.finish(MessageSegment.at(event.get_user_id())
                                   +MessageSegment.text(gsd_result))
+    
+@calcu_kang_opt_trigger.handle()
+async def _(matcher:Matcher,args:Message=CommandArg()):
+    if args.extract_plain_text():
+        matcher.set_arg("kangopt_arg",args)
+
+@calcu_kang_opt_trigger.got("kangopt_arg",prompt='''===康氏光学卫星简单计算器===
+请输入计算所需的参数
+格式：“[光学系统口径(m)] [轨道高度(km)] [康永来光学常数] [侧摆角度] [0度基础值]”''')
+async def _(event:Event,kangopt_arg:str=ArgPlainText()):
+    list_kangopt_arg = kangopt_arg.split(" ")
+    M_diameter =float( list_kangopt_arg[0])
+    M_altitude_km =float(  list_kangopt_arg[1])
+    M_kang_constant = float( list_kangopt_arg[2])
+    M_off_nadir_angle =float(  list_kangopt_arg[3])
+    M_nadir_swath_value = float( list_kangopt_arg[4])
+    # 第一步：计算0度侧摆下的星下幅宽
+    nadir_swath_value = calculate_nadir_swath(M_diameter, M_altitude_km, M_kang_constant)
+
+    # 第二步：根据实际侧摆角度要求计算幅宽
+    off_nadir_angle = 30  # 例如，计算30度侧摆角度下的幅宽
+    calculated_swath_width = kang_swath_width_adjusted(M_off_nadir_angle, M_nadir_swath_value)
+
+    # 输出结果
+    await calcu_kang_opt_trigger.finish(f"0度星下幅宽: {nadir_swath_value} km\n{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width} km")
+    print(f"0度星下幅宽: {nadir_swath_value} km")
+    print(f"{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width} km")
