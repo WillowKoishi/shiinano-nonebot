@@ -82,5 +82,5 @@ async def avg_length_function(event:Event,arg:Message=CommandArg()):
 
 @tester.handle()
 async def tester_trigger():
-    #redis_db.hmset(f"length:3186529401",{f"20241018":-100000000})
+    redis_db.hmset(f"length:1033855007",{f"20241033":12})
     await tester.finish(str(redis_db.ping()))
