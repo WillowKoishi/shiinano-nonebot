@@ -305,7 +305,7 @@ def comprehensive_sensor_calculations(altitude, aperture, f_number, pixel_size, 
 红外直达地面SWSTG:{grd_data['SWSTG']:.3f}m
 远红外FIR:{grd_data['FIR']:.3f}m
 '''
-    return text_result
+    return [text_result,near_contact_swath]
 
 # 示例参数
 altitude = 400000  # 轨道高度，单位米
@@ -354,10 +354,22 @@ async def got_gsd_function(event:Event,gsd_arg:str=ArgPlainText()):
     m像元尺寸 = float(list_gsd_arg[3])
     m侧摆角   = float(list_gsd_arg[4])
     #gsd_result = 综合传感器计算(m高度, m口径, m焦距, m像元尺寸, m侧摆角, 波长字典)
+
+
+    
     gsd_result = comprehensive_sensor_calculations(m高度, m口径, mf, m像元尺寸, m侧摆角, wavelength_dict)
     print(gsd_result)
+
+    nadir_swath_value = calculate_nadir_swath(m口径, m高度/1000, 36.84)
+
+    # 第二步：根据实际侧摆角度要求计算幅宽
+
+    off_nadir_angle = m侧摆角  # 例如，计算30度侧摆角度下的幅宽
+    calculated_swath_width = kang_swath_width_adjusted(m侧摆角, gsd_result[1])
+
     await calcu_dv_trigger.finish(MessageSegment.at(event.get_user_id())
-                                  +MessageSegment.text(gsd_result))
+                                  +MessageSegment.text(gsd_result[0])
+                                  +MessageSegment.text(f"---使用康式拟合法---\n0度星下幅宽: {nadir_swath_value:.3f} km\n{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width:.3f} km"))
     
 @calcu_kang_opt_trigger.handle()
 async def _(matcher:Matcher,args:Message=CommandArg()):
@@ -383,5 +395,3 @@ async def _(event:Event,kangopt_arg:str=ArgPlainText()):
 
     # 输出结果
     await calcu_kang_opt_trigger.finish(f"0度星下幅宽: {nadir_swath_value} km\n{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width} km")
-    print(f"0度星下幅宽: {nadir_swath_value} km")
-    print(f"{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width} km")

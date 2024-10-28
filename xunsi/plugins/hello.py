@@ -3,11 +3,20 @@ from nonebot.adapters.onebot.v11 import  Event,Message,MessageSegment,PokeNotify
 from nonebot.params import CommandArg
 from nonebot.rule import Rule,to_me
 import random 
+import requests,json
 
 hello_test = on_command("存活测试2",priority=10,block=True)
 upsetkoishi_trigger = on_command("倒立恋恋",aliases={"倒立恋恋2022"},priority=10,block=True)
 upsetkoishi_trigger2 = on_command("倒立恋恋2",aliases={"倒立恋恋2024"},priority=10,block=True)
+json_test = on_command("json测试",priority=10,block=True)
+url_thonly_wiki = "https://thonly.cc/proxy_google_doc/v4/spreadsheets/13xQAWuJkd8u4PFfMpMOrpJSb4RAM1isENnkMUCFFpK4/values/Activities!A2:E150?key=AIzaSyAKE37_qaMY4aYDHubmX_yfebfYmnx2HUw"
 
+@json_test.handle()
+async def _():
+     data = requests.get(url_thonly_wiki,verify=True).text
+     json_data = json.loads(data)
+     print(f"【返回结果】：{json_data}")
+     await json_test.finish(str(len(data)))
 
 @hello_test.handle()
 async def hello_test_method(event:Event,arg:Message=CommandArg()):
