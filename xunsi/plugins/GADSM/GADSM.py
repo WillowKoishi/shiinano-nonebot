@@ -5,12 +5,12 @@ import pandas as pd
 import numpy as np
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
 def GADSM(sequence_str: str, year_0_str: str, year_1_str: str, C_3: str):
-
     cur_path = os.path.dirname(__file__)
     GADSM_path = os.path.join(cur_path, "GADSM")
     if not os.path.exists(GADSM_path):
@@ -18,7 +18,7 @@ def GADSM(sequence_str: str, year_0_str: str, year_1_str: str, C_3: str):
 
     time_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
     csv_path = os.path.join(GADSM_path, time_str + ".csv")
-    
+
     sequence_list = list(sequence_str)
     sequence = list(range(3))
     sequence[0] = int(sequence_list[0])
@@ -37,10 +37,12 @@ def GADSM(sequence_str: str, year_0_str: str, year_1_str: str, C_3: str):
     dll_path = os.path.join(cur_path, "GADSM.dll")
 
     GADSM_dll = ctypes.WinDLL(dll_path)
-    MS = ctypes.c_int(5) # 多启动次数
-    pop = ctypes.c_int(100) # 种群数量
-    gen = ctypes.c_int(2000) # 迭代次数
-    err = GADSM_dll.GADSM_for_bot(csv_path_c, sequence_c, year_0_c, year_1_c, C_3_c, MS, pop, gen)
+    MS = ctypes.c_int(5)  # 多启动次数
+    pop = ctypes.c_int(100)  # 种群数量
+    gen = ctypes.c_int(2000)  # 迭代次数
+    err = GADSM_dll.GADSM_for_bot(
+        csv_path_c, sequence_c, year_0_c, year_1_c, C_3_c, MS, pop, gen
+    )
 
     if err == 0:
         data = pd.read_csv(csv_path)
@@ -62,15 +64,23 @@ def GADSM(sequence_str: str, year_0_str: str, year_1_str: str, C_3: str):
         eph_path = os.path.join(cur_path, "EPH")
         eph_list = os.listdir(eph_path)
 
-        data = pd.read_csv(os.path.join(eph_path, eph_list[sequence[0] - 1]), sep=" ", header=None)
+        data = pd.read_csv(
+            os.path.join(eph_path, eph_list[sequence[0] - 1]), sep=" ", header=None
+        )
         r_planet_1 = np.array(data.iloc[:, 0:2])
-        data = pd.read_csv(os.path.join(eph_path, eph_list[sequence[1] - 1]), sep=" ", header=None)
+        data = pd.read_csv(
+            os.path.join(eph_path, eph_list[sequence[1] - 1]), sep=" ", header=None
+        )
         r_planet_2 = np.array(data.iloc[:, 0:2])
-        data = pd.read_csv(os.path.join(eph_path, eph_list[sequence[2] - 1]), sep=" ", header=None)
+        data = pd.read_csv(
+            os.path.join(eph_path, eph_list[sequence[2] - 1]), sep=" ", header=None
+        )
         r_planet_3 = np.array(data.iloc[:, 0:2])
 
-        plt.figure(figsize=(12,9))
-        img = plt.imread("C:\\Users\\Administrator\\shiinano\\src\\img\\gadsm\\GADSM底图.png")
+        plt.figure(figsize=(12, 9))
+        img = plt.imread(
+            "C:\\Users\\Administrator\\shiinano\\src\\img\\gadsm\\GADSM底图.png"
+        )
 
         # plt.xkcd(scale=0.5, length=50, randomness=1)
         # plt.text(0, 0, "SETI", fontsize=180, color="gray", ha="center", va="center", alpha=0.1)
@@ -92,11 +102,11 @@ def GADSM(sequence_str: str, year_0_str: str, year_1_str: str, C_3: str):
         plt.xlabel("X (AU)")
         plt.ylabel("Y (AU)")
         plt.axis("equal")
-        plt.grid(linestyle='--', linewidth=0.5)
-        #plt.imsave(GADSM_path, time_str + ".png", format="png")
+        plt.grid(linestyle="--", linewidth=0.5)
+        # plt.imsave(GADSM_path, time_str + ".png", format="png")
         plt.figimage(img, 0, 0, alpha=1)
         plt.savefig(os.path.join(GADSM_path, time_str + ".png"))
-        #plt.show()
+        # plt.show()
 
         # return [(
         #     "出发时间：%s，"
@@ -105,7 +115,10 @@ def GADSM(sequence_str: str, year_0_str: str, year_1_str: str, C_3: str):
         #     + "深空机动ΔV：[%.1f, %.1f] m/s，"
         #     + "到达C3：%.2f km^2/s^2"
         # ) % (t_1_str, t_2_str, t_3_str, dv_1, dv_2, C_3_f),f"{time_str}.png"]
-        return [f"出发时间:{t_1_str},借力时间：{t_2_str}到达时间：{t_3_str}深空机动ΔV：[{round(dv_1,3)}m/s,{round(dv_2)}m/s]到达C3：{round(C_3_f,4)}km²/s²",f"{time_str}.png"]
+        return [
+            f"出发时间:{t_1_str},借力时间：{t_2_str}到达时间：{t_3_str}深空机动ΔV：[{round(dv_1,3)}m/s,{round(dv_2)}m/s]到达C3：{round(C_3_f,4)}km²/s²",
+            f"{time_str}.png",
+        ]
     elif err == 1:
         return "Write result into CSV error"
     elif err == -11:
@@ -135,10 +148,12 @@ def GADSM_demo():
     print(result)
     return result
 
-def calcu_GADSM(seq:str,y1:str,y2:str,c3:str):
+
+def calcu_GADSM(seq: str, y1: str, y2: str, c3: str):
     result = GADSM(seq, y1, y2, c3)
     print(result)
     return result
+
 
 if __name__ == "__main__":
     GADSM_demo()
