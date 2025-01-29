@@ -105,7 +105,7 @@ async def calcu_gadsm_function(bot: Bot, event: Event, gadsm_arg: str = ArgPlain
         MessageSegment.at(event.get_user_id())
         + MessageSegment.text(f"您本次的计算参数和结果为:\n{result[0]}")
         + MessageSegment.image(
-            f"file:///C:\\Users\\Administrator\\shiinano\\xunsi\\plugins\\GADSM\\GADSM\\{resalt[1]}"
+            f"file:///C:\\Users\\Administrator\\shiinano\\xunsi\\plugins\\GADSM\\GADSM\\{result[1]}"
         )
         + MessageSegment.text("该功能仅供娱乐，请不要使用该结果用于星际旅行哦！")
     )
