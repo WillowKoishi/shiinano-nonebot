@@ -1,15 +1,18 @@
-from nonebot import on_command, on_notice
-from nonebot.adapters.onebot.v11 import Event, Message, MessageSegment, PokeNotifyEvent
+from nonebot import on_command, require
+from nonebot.adapters.onebot.v11 import Event, Message, MessageSegment
 from nonebot.params import CommandArg
-from nonebot.rule import Rule, to_me
 from nonebot.matcher import Matcher
 from nonebot.params import ArgPlainText
 import math
 import numpy as np
-import pandas as pd
 
-from scipy.optimize import minimize
+from PIL import Image
+import io
 
+require("nonebot_plugin_htmlrender")
+from nonebot_plugin_htmlrender import (  # noqa: E402
+    md_to_pic,
+)
 
 def is_number(s):
     try:
@@ -46,6 +49,10 @@ calcu_kang_opt_trigger = on_command(
     "锘 康式光学", aliases={"锘康式光学"}, priority=10, block=True
 )
 
+gravity_calcu_trigger = on_command(
+    '锘 万有引力', priority=10, block=True
+)
+
 
 @calcu_dv_trigger.handle()
 def calcu_dv_function(matcher: Matcher, args: Message = CommandArg()):
@@ -55,83 +62,71 @@ def calcu_dv_function(matcher: Matcher, args: Message = CommandArg()):
 
 @calcu_dv_trigger.got(
     "dv_arg",
-    prompt="""请输入dv计算参数
-格式为  “A [比冲] [全重] [油重]”
-或      “B [比冲] [全重] [干重]”
-单位：比冲(s) 全重(kg) 干重(kg) 油重(kg)
-现已改用阿克莱(广义齐奥尔科夫斯基)公式""",
+    prompt="""请输入dv计算参数\n格式为  “A [比冲] [全重] [油重]”\n或      “B [比冲] [全重] [干重]”\n单位：比冲(s) 全重(kg) 干重(kg) 油重(kg)\n现已改用阿克莱(广义齐奥尔科夫斯基)公式""",
 )
 async def got_calcu_dv_function(dv_arg: str = ArgPlainText()):
     dv_arg_list = dv_arg.split(" ")
+
     if dv_arg_list[0] not in ["A", "B", "a", "b"]:
-        await calcu_dv_trigger.finish(
-            "你在乱输什么参数！不干了！\ntips:参数1错误，只能为A或B。"
-        )
+        await calcu_dv_trigger.finish("你在乱输什么参数！不干了！\ntips:参数1错误，只能为A或B。")
+
     if len(dv_arg_list) < 4:
         await calcu_dv_trigger.finish("你输入的参数不足，无法计算dv")
 
-    if not is_number(dv_arg_list[1]):
-        await calcu_dv_trigger.finish(
-            "你在乱输什么参数！不干了！\ntips:比冲参数只能为数字"
-        )
-    if float(dv_arg_list[1]) == 0:
-        await calcu_dv_trigger.finish(
-            "你这发动机根本喷不出任何东西！\ntips:发动机比冲必须大于0"
-        )
-    if float(dv_arg_list[1]) < 0:
-        await calcu_dv_trigger.finish(
-            "你这发动机怎么会吸气的！\ntips:发动机比冲必须大于0"
-        )
+    try:
+        isp = float(dv_arg_list[1])
+        m_full = float(dv_arg_list[2])
+        m_var = float(dv_arg_list[3])
+    except ValueError:
+        await calcu_dv_trigger.finish("所有输入参数必须是数字！")
 
-    if (not is_number(dv_arg_list[2])) or (not is_number(dv_arg_list[3])):
-        await calcu_dv_trigger.finish(
-            "你在乱输什么参数！不干了！\ntips:参数2或3或4错误，只能为数字"
-        )
+    if isp <= 0:
+        await calcu_dv_trigger.finish("发动机比冲必须为正值！\ntips:比冲参数大于0")
 
-    if (float(dv_arg_list[2]) < 0) or (float(dv_arg_list[3]) < 0):
-        await calcu_dv_trigger.finish(
-            "如果负质量能稳定在宏观条件存在，还需要什么化学火箭！不干了！\ntips:所有参数不能为负"
-        )
-
-    if float(dv_arg_list[2]) <= float(dv_arg_list[3]):
-        await calcu_dv_trigger.finish(
-            "燃料质量怎么可能比总质量还多呢！不干了！\ntips:油重或干重不能大于等于总质量"
-        )
+    if m_full <= 0 or m_var <= 0:
+        await calcu_dv_trigger.finish("所有质量参数必须为正值！\ntips:请检查全重和油重/干重是否正确。")
 
     if dv_arg_list[0] in ["A", "a"]:
-        c_light = float(299792458)
+        m_var = m_full - m_var
 
-        isp = float(dv_arg_list[1])
-        m_full = float(dv_arg_list[2])
-        m_fule = float(dv_arg_list[3])
+    if dv_arg_list[0] in ["A", "a"] and m_full <= m_var:
+        await calcu_dv_trigger.finish("燃料质量不能大于或等于总质量！")
+    if dv_arg_list[0] in ["B", "b"] and m_full <= m_var:
+        await calcu_dv_trigger.finish("干重不能大于或等于总质量！")
 
-        # dv = isp*9.81*np.log(m_full/(m_full-m_fule))
+    c_light = 299792458
 
-        ackeret_dv_up = 1 - math.pow(
-            (m_full / (m_full - m_fule)), (2 * isp * 9.81 / c_light)
-        )
-        ackeret_dv_down = 1 + math.pow(
-            (m_full / (m_full - m_fule)), (2 * isp * 9.81 / c_light)
-        )
-        ackeret_dv = -c_light * ackeret_dv_up / ackeret_dv_down
-        await calcu_dv_trigger.finish(
-            f"计算结果：\n干质比：{round(m_full/(m_full-m_fule),3)}\nΔv={round(ackeret_dv,3)}m/s"
-        )  # \n使用阿克莱公式：Δv={round(ackeret_dv,3)}m/s")
+    # mass_ratio = m_full / (m_full - m_var) if dv_arg_list[0].lower() == "a" else m_full / m_var
+    mass_ratio = m_full / m_var
 
-    if dv_arg_list[0] in ["B", "b"]:
-        c_light = float(299792458)
-        isp = float(dv_arg_list[1])
-        m_full = float(dv_arg_list[2])
-        m_dry = float(dv_arg_list[3])
+    power_factor = (2 * isp * 9.81 / c_light)
 
-        # dv = isp*9.81*np.log(m_full/m_dry)
-        ackeret_dv_up = 1 - math.pow((m_full / m_dry), (2 * isp * 9.81 / c_light))
-        ackeret_dv_down = 1 + math.pow((m_full / m_dry), (2 * isp * 9.81 / c_light))
-        ackeret_dv = -c_light * ackeret_dv_up / ackeret_dv_down
-        await calcu_dv_trigger.finish(
-            f"计算结果：\n干质比：{round(m_full/m_dry,3)}\nΔv={round(ackeret_dv,3)}m/s"
-        )
-    await calcu_dv_trigger.finish("出现了其他错误！私密马楼")
+    ackeret_dv_up = 1 - math.pow(mass_ratio, power_factor)
+    ackeret_dv_down = 1 + math.pow(mass_ratio, power_factor)
+
+    dv = -c_light * ackeret_dv_up / ackeret_dv_down
+
+    
+    formula_md_template = f"""
+### 计算公式
+$$ \\Delta v = -c \\cdot \\frac{{1 - \\left(\\frac{{{{M_f}}}}{{{{M_i}}}}\\right)^{{{{2 \\cdot I_{{sp}} \\cdot g_0 / c}}}}}}{{1 + \\left(\\frac{{{{M_f}}}}{{{{M_i}}}}\\right)^{{{{2 \\cdot I_{{sp}} \\cdot g_0 / c}}}}}} $$
+
+#### 输入参数:
+- $ I_{{sp}} = {isp}s $
+- $ {{M_f}} = {m_full}kg $
+- $ {{M_i}} = {m_var}kg $
+
+#### 计算结果:
+- 干质比: $ \\frac{{{{M_f}}}}{{{{M_i}}}} = {mass_ratio} $
+- $ \\Delta v = {round(dv, 3)}m/s $
+"""
+
+    pic: bytes = await md_to_pic(md=formula_md_template, width=750)
+
+    img = Image.open(io.BytesIO(pic))
+    img.save("md2pic.png", format="PNG")
+
+    await calcu_dv_trigger.finish(MessageSegment.image(pic))
 
 
 @calcu_dwr_trigger.handle()
@@ -173,7 +168,7 @@ calcu_hohm_trigger = on_command(
 
 
 @calcu_hohm_trigger.handle()
-def calcu_dwr_function(matcher1: Matcher, args1: Message = CommandArg()):
+def calcu_hohm_function(matcher1: Matcher, args1: Message = CommandArg()):
     if args1.extract_plain_text():
         matcher1.set_arg("hohmann_arg", args1)
 
@@ -186,20 +181,67 @@ def calcu_dwr_function(matcher1: Matcher, args1: Message = CommandArg()):
 )
 async def got_calcu_hohm_function(hohmann_arg: str = ArgPlainText()):
     hohmann_arg_list = hohmann_arg.split(" ")
-    mu_earth = 398600.44e9
-    r_earth: float = 6378.14 * 1000  # km
-    r1 = float(hohmann_arg_list[0]) * 1000 + r_earth
-    r2 = float(hohmann_arg_list[1]) * 1000 + r_earth
 
+    if len(hohmann_arg_list) < 2:
+        await calcu_hohm_trigger.finish("输入的参数不足，无法计算霍曼转移。请检查格式是否为 '[初始轨道高度] [目标轨道高度]'。")
+
+    try:
+        r1 = float(hohmann_arg_list[0]) * 1000  # 初始轨道高度，转为米
+        r2 = float(hohmann_arg_list[1]) * 1000  # 目标轨道高度，转为米
+    except ValueError:
+        await calcu_hohm_trigger.finish("输入参数必须是有效的数字！")
+
+    if r1 <= 0 or r2 <= 0:
+        await calcu_hohm_trigger.finish("轨道高度必须为正值！")
+
+    # 地球参数
+    mu_earth = 398600.44e9  # 万有引力参数，单位 m^3/s^2
+    r_earth = 6378.14 * 1000  # 地球半径，单位 m
+    r1 += r_earth
+    r2 += r_earth
+
+    # 霍曼转移计算
     dv1 = math.sqrt(mu_earth / r1) * (math.sqrt(2 * r2 / (r1 + r2)) - 1)
     dv2 = math.sqrt(mu_earth / r2) * (1 - math.sqrt(2 * r1 / (r1 + r2)))
     dt = math.pi * math.sqrt(math.pow(r1 + r2, 3) / (8 * mu_earth))
-    await calcu_dv_trigger.finish(f"""从{hohmann_arg_list[0]}km圆轨道转移到{hohmann_arg_list[1]}km圆轨道所需的Δv为:
-第一次点火:{round(dv1,2)}m/s,
-第二次点火:{round(dv2,2)}m/s
-总计Δv：{round(dv1+dv2,2)}m/s
-耗时：{round(dt/60,2)}分钟
-计算纯属理想状态，请不要使用该结果用于星际旅行哦！""")
+
+    # Markdown 输出
+    formula_md_template = f"""
+### 霍曼转移轨道计算结果
+
+#### 输入参数:
+- 初始轨道高度：{hohmann_arg_list[0]} km
+- 目标轨道高度：{hohmann_arg_list[1]} km
+
+
+- ${{r_1}} = {{r_地}} + {hohmann_arg_list[0]}km$
+- ${{r_2}} = {{r_地}} + {hohmann_arg_list[1]}km$
+#### 计算公式:
+1. 第一次点火的速度增量：
+   $$ \\Delta v_1 = \\sqrt{{\\frac{{\\mu}}{{r_1}}}} \\left(\\sqrt{{\\frac{{2 r_2}}{{r_1 + r_2}}}} - 1\\right) $$
+
+2. 第二次点火的速度增量：
+   $$ \\Delta v_2 = \\sqrt{{\\frac{{\\mu}}{{r_2}}}} \\left(1 - \\sqrt{{\\frac{{2 r_1}}{{r_1 + r_2}}}}\\right) $$
+
+3. 转移时间：
+   $$ \\Delta t = \\pi \\sqrt{{\\frac{{(r_1 + r_2)^3}}{{8 \\mu}}}} $$
+
+#### 计算结果:
+- 第一次点火的 $\\Delta v_1 = {round(dv1, 2)}m/s$
+- 第二次点火的 $\\Delta v_2 = {round(dv2, 2)}m/s$
+- 总计 $\\Delta v = {round(dv1 + dv2, 2)}m/s$
+- 转移耗时：$ \\Delta t = {round(dt / 60, 2)}min$
+
+> **注意：** 以上计算基于理想情况，仅供参考，请不要用于星际旅行哦！
+"""
+
+    pic: bytes = await md_to_pic(md=formula_md_template, width=750)
+
+    img = Image.open(io.BytesIO(pic))
+    img.save("hohmann2pic.png", format="PNG")
+
+    await calcu_hohm_trigger.finish(MessageSegment.image(pic))
+
 
 
 @calcu_kyl_trigger.handle()
@@ -353,26 +395,26 @@ def comprehensive_sensor_calculations(
         width = ratio * (aperture / np.sqrt(2))
         field_of_view = 2 * np.arctan(width / (2 * focal_length))
         return calculate_swath_with_curvature(altitude, field_of_view, off_nadir_angle)
-
+    global gsd, grd_data
     # 执行计算
     gsd = calculate_gsd(altitude, pixel_size, focal_length, off_nadir_angle)
-
+    
     grd_data = {}
     for band, wavelength in wavelength_dict.items():
         grd_data[band] = calculate_grd(altitude, aperture, wavelength)
 
+    global potential_swath, near_contact_swath
     potential_swath = calculate_potential_swath(altitude, aperture, focal_length)
     near_contact_swath = calculate_near_contact_swath(altitude, aperture, focal_length)
 
     # 将所有数据组织成 DataFrame
-    results = {
-        "Parameter": ["GSD (m)", "Potential Swath (km)", "Near Contact Swath (km)"]
-        + [f"GRD - {band} (m)" for band in wavelength_dict],
-        "Value": [gsd, potential_swath / 1000, near_contact_swath / 1000]
-        + list(grd_data.values()),
-    }
+    # results = {
+    #     "Parameter": ["GSD (m)", "Potential Swath (km)", "Near Contact Swath (km)"]
+    #     + [f"GRD - {band} (m)" for band in wavelength_dict],
+    #     "Value": [gsd, potential_swath / 1000, near_contact_swath / 1000]
+    #     + list(grd_data.values()),
+    # }
 
-    df_results = pd.DataFrame(results)
 
     text_result = f""" 计算结果默认NOFORN/REL SETI
 ===光学卫星简单计算器===
@@ -455,13 +497,66 @@ async def got_gsd_function(event: Event, gsd_arg: str = ArgPlainText()):
     off_nadir_angle = m侧摆角  # 例如，计算30度侧摆角度下的幅宽
     calculated_swath_width = kang_swath_width_adjusted(m侧摆角, gsd_result[1])
 
-    await calcu_dv_trigger.finish(
-        MessageSegment.at(event.get_user_id())
-        + MessageSegment.text(gsd_result[0])
-        + MessageSegment.text(
-            f"---使用康式拟合法---\n0度星下幅宽: {nadir_swath_value:.3f} km\n{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width:.3f} km"
-        )
-    )
+    # Markdown 输出
+    optical_md_template = (
+    f"""
+### 光学卫星计算结果
+
+#### 输入参数:
+- 卫星高度：{list_gsd_arg[0]} km
+- 光学系统口径：{list_gsd_arg[1]} m
+- F数：{list_gsd_arg[2]}
+- 像元尺寸：{list_gsd_arg[3]} μm
+- 侧摆角：{list_gsd_arg[4]}°
+
+#### 计算公式:
+1. 地面采样分辨率 (GSD)：  
+   $$ GSD = \\frac{{\\text{{高度}} \\times \\text{{像元尺寸}}}}{{\\text{{焦距}} \\cdot \\cos(\\text{{侧摆角}})}} $$  
+   焦距 $f = \\text{{F数}} \\times \\text{{光学系统口径}}$
+
+2. 衍射极限分辨率 (GRD)：  
+   $$ GRD = 1.22 \\times \\frac{{\\text{{波长}} \\times \\text{{高度}}}}{{\\text{{光学系统口径}}}} $$
+
+3. 全口径潜力幅宽：  
+   $$ SW_{{\\text{{pot}}}} = 2 \\cdot \\text{{有效高度}} \\cdot \\tan\\left(\\frac{{\\text{{视场角}} + \\text{{侧摆角}}}}{2}\\right) $$
+
+4. 近接幅宽：  
+   $$ SW_{{\\text{{near}}}} = 2 \\cdot \\text{{有效高度}} \\cdot \\tan\\left(\\frac{{\\text{{探测器视场角}} + \\text{{侧摆角}}}}{2}\\right) $$
+
+5. 康式拟合幅宽调整公式：  
+   $$ SW_{{\\text{{康}}}} = a \\cdot \\left(\\tan(\\text{{侧摆角}})\\right)^b + c $$
+
+#### 计算结果:
+- 地面采样分辨率 (GSD)：$ {gsd / 1000000:.3f} m$
+- 全口径潜力宽幅：$ {potential_swath / 1000:.3f} km$
+- 近接宽幅：$ {near_contact_swath / 1000:.3f} km$
+
+#### 各波段衍射极限分辨率 (GRD):
+{ ''.join([f'- {band}：$$ {grd_data[band]:.3f} m$$' for band in wavelength_dict.keys()]) }
+
+#### 康式拟合法计算幅宽:
+- 0°星下幅宽：$ {nadir_swath_value:.3f} km$
+- {off_nadir_angle}° 侧摆角度下幅宽：$ {calculated_swath_width:.3f} km$
+
+> **注意：** 以上计算基于理想情况，仅供参考。
+"""
+)
+
+    pic: bytes = await md_to_pic(md=optical_md_template, width=750)
+
+    img = Image.open(io.BytesIO(pic))
+    img.save("hohmann2pic.png", format="PNG")
+
+    await calcu_dv_trigger.finish(MessageSegment.image(pic))
+
+
+    # await calcu_dv_trigger.finish(
+    #     MessageSegment.at(event.get_user_id())
+    #     + MessageSegment.text(gsd_result[0])
+    #     + MessageSegment.text(
+    #         f"---使用康式拟合法---\n0度星下幅宽: {nadir_swath_value:.3f} km\n{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width:.3f} km"
+    #     )
+    # )
 
 
 @calcu_kang_opt_trigger.handle()
@@ -498,3 +593,55 @@ async def _(event: Event, kangopt_arg: str = ArgPlainText()):
     await calcu_kang_opt_trigger.finish(
         f"0度星下幅宽: {nadir_swath_value} km\n{off_nadir_angle}度侧摆角度下的幅宽: {calculated_swath_width} km"
     )
+
+@gravity_calcu_trigger.handle()
+def calcu_gravity_v2_function(matcher: Matcher, args: Message = CommandArg()):
+    if args.extract_plain_text():
+        matcher.set_arg("gravity_v2_arg", args)
+
+
+@gravity_calcu_trigger.got(
+    "gravity_v2_arg",
+    prompt="""请输入引力计算参数\n格式为  “[物体1质量] [物体2质量] [距离]”\n单位：质量(kg) 距离(m)\n现已改用万有引力公式""",
+)
+async def got_calcu_gravity_v2_function(gravity_v2_arg: str = ArgPlainText()):
+    gravity_v2_arg_list = gravity_v2_arg.split(" ")
+
+    if len(gravity_v2_arg_list) < 3:
+        await gravity_calcu_trigger.finish("你输入的参数不足，无法计算引力")
+
+    try:
+        m1 = float(gravity_v2_arg_list[0])  # 物体1质量
+        m2 = float(gravity_v2_arg_list[1])  # 物体2质量
+        r = float(gravity_v2_arg_list[2])   # 物体之间的距离
+    except ValueError:
+        await gravity_calcu_trigger.finish("所有输入参数必须是数字！")
+
+    if m1 <= 0 or m2 <= 0 or r <= 0:
+        await gravity_calcu_trigger.finish("质量和距离必须为正值！")
+
+    # 万有引力常数
+    G = 6.67430e-11
+
+    # 计算引力
+    F = G * m1 * m2 / r**2
+
+    formula_md_template = f"""
+### 计算公式
+$$ F = \\frac{{G M_1 M_2}}{{r^2}} $$
+
+#### 输入参数:
+- $ M_1 = {m1}kg $
+- $ M_2 = {m2}kg $
+- $ r = {r}m $
+
+#### 计算结果:
+- 引力: $ F = {F} N $
+"""
+
+    pic: bytes = await md_to_pic(md=formula_md_template, width=750)
+
+    img = Image.open(io.BytesIO(pic))
+    img.save("gravity2pic.png", format="PNG")
+
+    await gravity_calcu_trigger.finish(MessageSegment.image(pic))
