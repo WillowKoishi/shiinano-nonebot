@@ -48,10 +48,19 @@ def getYesterday():
 
 @today_length_trigger.handle()
 async def today_length_function(event: Event, arg: Message = CommandArg()):
+    print(event.get_session_id())
+    print(event.get_session_id().find("809238483"))
+    if not event.get_session_id().find("809238483"):
+        await today_length_trigger.finish()
     time_today = time.localtime(time.time())
     data = np.random.normal(12, 7, 100)
     logger.info(data)
-    random_seg = round(random.choice(data), 2)
+    is_ident = True
+    while is_ident:
+        random_seg = round(random.choice(data), 2)
+        if random_seg > 13 or random_seg < 0:
+            is_ident = False
+    
     user_id = event.get_user_id()
     timestep = time.strftime("%Y%m%d")
 

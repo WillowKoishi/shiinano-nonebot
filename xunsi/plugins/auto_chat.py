@@ -99,16 +99,16 @@ async def contains_typo_key(event: MessageEvent) -> bool:
     return False
 
 
-group_message = on_message(priority=10, block=False)
+# group_message = on_message(priority=10, block=False)
 
 
-@group_message.handle()
-async def handle_group_message(bot: Bot, event: GroupMessageEvent):
-    msg = event.get_plaintext()
-    if str(event.group_id) == "589943678":
-        if event.get_user_id() == "1033855007":
-            # await group_message.send(msg)
-            logger.info(event.get_event_description())
-    else:
-        logger.info(f"invalid user id,msg:'{msg}'")
-        return
+# @group_message.handle()
+# async def handle_group_message(bot: Bot, event: GroupMessageEvent):
+#     msg = event.get_plaintext()
+#     if str(event.group_id) == "589943678":
+#         if event.get_user_id() == "1033855007":
+#             # await group_message.send(msg)
+#             logger.info(event.get_event_description())
+#     else:
+#         logger.info(f"invalid user id,msg:'{msg}'")
+#         return

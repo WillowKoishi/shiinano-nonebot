@@ -23,6 +23,12 @@
         "withdraw" : 0,   
         "maxnum"   : 10    
     },
+    "group_818426360":{
+        "cd"       : 1,    
+        "r18"      : false,
+        "withdraw" : 10,   
+        "maxnum"   : 1    
+    },
     "group_975450294":{
         "cd"       : 1,    
         "r18"      : true,
@@ -34,7 +40,8 @@
     },
     "ban":[                 
         "user_1919",         
-        "group_810"
+        "group_810",
+		"group_809238483"
     ],
     "proxy": "i.pixiv.re"   
 }

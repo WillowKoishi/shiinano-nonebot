@@ -1,5 +1,5 @@
 from nonebot import on_command, on_notice
-from nonebot.adapters.onebot.v11 import Event, Message, MessageSegment, PokeNotifyEvent
+from nonebot.adapters.onebot.v11 import Event, Message, MessageSegment, PokeNotifyEvent,Bot,MessageEvent
 from nonebot.params import CommandArg
 from nonebot.rule import Rule, to_me
 import random
@@ -54,7 +54,7 @@ async def upsetkoishi_function2(event: Event):
     )
 
 
-poke_shiinano_trigger = on_notice(rule=to_me(), priority=4, block=True)
+poke_shiinano_trigger = on_notice(rule=to_me(), priority=4, block=False)
 import os
 
 
@@ -72,5 +72,10 @@ async def poke_shiinano_function(event: PokeNotifyEvent):
         await poke_shiinano_trigger.finish(
             MessageSegment.at(event.get_user_id()) + " 不要揉我！"
         )
-    await poke_shiinano_trigger.finish(MessageSegment.record(send_voice))
-    # await poke_shiinano_trigger.finish(Message(f'[CQ:poke,qq={event.get_user_id()}]'))
+    await poke_shiinano_trigger.send(MessageSegment.record(send_voice))
+    await poke_shiinano_trigger.finish(Message(f'[CQ:poke,qq={event.get_user_id()}]'))
+
+shiina_copy = on_command(cmd="锘 复读")
+@shiina_copy.handle()
+async def _(bot:Bot, event: MessageEvent, arg = CommandArg()):
+    await shiina_copy.finish(message=arg)
